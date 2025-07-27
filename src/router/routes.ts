@@ -10,6 +10,17 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/IndexPage.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: '/cart',
+        component: () => import('pages/CartPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: '/payment',
+        name: 'payment',
+        component: () => import('pages/PaymentPage.vue'),
+        props: true, // allow route props
+      },
     ],
   },
   {

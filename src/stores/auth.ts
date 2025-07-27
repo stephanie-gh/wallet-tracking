@@ -2,9 +2,42 @@ import { defineStore } from 'pinia';
 import { Cookies } from 'quasar';
 import { api } from 'boot/axios';
 
+export interface Login {
+  username: string;
+  password: string;
+}
+export interface Register {
+  username: string;
+  password: string;
+  email: string;
+}
+
+export interface User {
+  id: number;
+  email: string;
+  username: string;
+  password: string;
+  name: {
+    firstname: string;
+    lastname: string;
+  };
+  phone: string;
+  address: {
+    geolocation: {
+      lat: string;
+      long: string;
+    };
+    city: string;
+    street: string;
+    number: number;
+    zipcode: string;
+  };
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: Cookies.get('token') || null,
+    user: null as User | null,
   }),
   actions: {
     async login(username: string, password: string) {
@@ -18,6 +51,9 @@ export const useAuthStore = defineStore('auth', {
         if (token) {
           this.token = token;
           Cookies.set('token', token, { expires: 7 });
+          Cookies.set('user', username, { expires: 7 });
+
+          console.log('User logged in');
         } else {
           throw new Error('Token not received');
         }
@@ -50,6 +86,16 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       this.token = null;
       Cookies.remove('token');
+    },
+    async fetchCurrentUser() {
+      if (!this.token) return;
+
+      const username = Cookies.get('user');
+      if (!username) return;
+
+      const usersRes = await api.get('/users');
+      const foundUser = usersRes.data.find((u: User) => u.username === username);
+      this.user = foundUser || null;
     },
   },
 });
