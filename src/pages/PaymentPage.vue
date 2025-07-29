@@ -1,8 +1,9 @@
 <template>
   <q-page class="q-pa-md bg-grey-1">
     <div style="max-width: 600px; margin: 0 auto">
-      <q-card flat bordered class="q-pa-lg">
-        <div class="text-h5 text-weight-bold text-center q-mb-md">Choose Payment Method</div>
+      <q-btn flat dense icon="arrow_back" color="grey" label="Back" @click="$router.go(-1)" />
+      <q-card flat bordered class="q-pa-lg q-mt-md">
+        <HeaderComponent title="Choose Payment Method" />
 
         <q-option-group
           v-model="selectedMethod"
@@ -15,17 +16,18 @@
         <q-separator class="q-my-md" />
 
         <!-- Payment Content -->
+        <div v-if="selectedMethod === 'wallet'">
+          <WalletPayment :totalPrice="transaction.totalPrice" />
+        </div>
+
         <div v-if="selectedMethod === 'card'">
-          <div class="text-subtitle1 q-mb-sm">Pay with Card</div>
-          <q-input v-model="cardNumber" label="Card Number" outlined class="q-mb-md" />
-          <q-input v-model="nameOnCard" label="Name on Card" outlined class="q-mb-md" />
-          <q-input v-model="expiry" label="Expiry (MM/YY)" outlined class="q-mb-md" />
-          <q-input v-model="cvv" label="CVV" type="password" outlined class="q-mb-md" />
+          <CardPayment />
         </div>
 
         <div v-else-if="selectedMethod === 'va'">
           <div class="text-subtitle1 q-mb-sm">Pay via Virtual Account</div>
           <q-select
+            options-dense
             v-model="selectedBank"
             :options="vaBanks"
             label="Select Bank"
@@ -39,22 +41,13 @@
         </div>
 
         <div v-else-if="selectedMethod === 'qris'">
-          <div class="text-subtitle1 q-mb-sm">Pay with QRIS</div>
-          <div class="text-caption text-grey q-mb-sm">Scan this QR to complete the payment:</div>
-          <q-img
-            src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=DUMMY_PAYMENT_QRIS"
-            style="width: 200px; margin: 0 auto"
-            class="q-mb-md"
-          />
+          <QrisPayment />
         </div>
 
         <q-separator class="q-my-md" />
 
         <!-- Total Summary -->
-        <div class="row justify-between items-center q-mb-md">
-          <div class="text-subtitle2">Total to Pay:</div>
-          <div class="text-h6 text-primary text-weight-bold">${{ totalFormatted }}</div>
-        </div>
+        <PaymentSummary :totalPrice="transaction.totalPrice" />
 
         <q-btn
           label="Pay Now"
@@ -67,7 +60,7 @@
       </q-card>
 
       <!-- Success Dialog -->
-      <q-dialog v-model="dialog" persistent>
+      <q-dialog v-model="dialog" persistent backdrop-filter="blur(4px)">
         <q-card>
           <q-card-section class="text-center">
             <div class="text-h6 text-weight-bold text-green">
@@ -99,8 +92,23 @@
             <div v-else class="q-mt-sm text-caption">Thank you for your purchase.</div>
           </q-card-section>
 
-          <q-card-actions align="center">
-            <q-btn flat label="Close" color="primary" v-close-popup @click="goToHome" />
+          <q-card-actions align="center"
+            ><q-btn
+              v-if="selectedMethod === 'va' && !vaPaid"
+              label="Check Payment Status"
+              color="primary"
+              outline
+              :loading="checkingStatus"
+              @click="checkPaymentStatus"
+            />
+            <q-btn
+              flat
+              label="Back to Home"
+              color="primary"
+              v-close-popup
+              @click="goToHome"
+              :disable="checkingStatus"
+            />
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -111,17 +119,23 @@
 <script setup lang="ts">
 import { useQuasar } from 'quasar';
 import { ref, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
+import { useWalletStore } from 'src/stores/wallet';
+import { useTransactionStore } from 'src/stores/transaction';
+import HeaderComponent from 'src/components/HeaderComponent.vue';
+import PaymentSummary from 'src/components/payment/PaymentSummary.vue';
+import CardPayment from 'src/components/payment/CardPayment.vue';
+import QrisPayment from 'src/components/payment/QrisPayment.vue';
+import WalletPayment from 'src/components/payment/WalletPayment.vue';
 
-const route = useRoute();
+const transaction = useTransactionStore();
+const wallet = useWalletStore();
 const router = useRouter();
 const $q = useQuasar();
 
-const total = ref(Number(route.query.total) || 0);
-const totalFormatted = computed(() => total.value.toLocaleString());
-
-const selectedMethod = ref('card');
+const selectedMethod = ref('wallet');
 const paymentMethods = [
+  { label: 'Wallet', value: 'wallet' },
   { label: 'Credit/Debit Card', value: 'card' },
   { label: 'Virtual Account (VA)', value: 'va' },
   { label: 'QRIS', value: 'qris' },
@@ -139,6 +153,8 @@ const selectedBank = ref('');
 const vaNumber = ref('');
 const vaExpiryTime = ref('');
 const vaBankLabel = computed(() => selectedBank.value || 'Your Bank');
+const vaPaid = ref(false);
+const checkingStatus = ref(false);
 
 // Dialog
 const dialog = ref(false);
@@ -165,6 +181,18 @@ function getExpiryTime() {
   return date.toLocaleString();
 }
 
+// Simulate payment processing by VA
+function checkPaymentStatus() {
+  checkingStatus.value = true;
+
+  setTimeout(() => {
+    vaPaid.value = true;
+    transaction.clearCart();
+    checkingStatus.value = false;
+    selectedMethod.value = 'paid';
+  }, 2000);
+}
+
 function pay() {
   if (selectedMethod.value === 'card') {
     if (!cardNumber.value || !nameOnCard.value || !expiry.value || !cvv.value) {
@@ -174,7 +202,9 @@ function pay() {
         message: 'Please fill in all card details',
       });
     }
-  } else if (selectedMethod.value === 'va') {
+  }
+
+  if (selectedMethod.value === 'va') {
     if (!selectedBank.value) {
       $q.notify({
         position: 'top',
@@ -186,9 +216,27 @@ function pay() {
     vaNumber.value = generateVANumber(selectedBank.value);
     vaExpiryTime.value = getExpiryTime();
     dialog.value = true;
+    return;
   }
 
-  dialog.value = true;
+  if (selectedMethod.value === 'wallet') {
+    if (wallet.balance < transaction.totalPrice) {
+      $q.notify({
+        position: 'top',
+        type: 'negative',
+        message: 'Insufficient balance',
+      });
+    }
+
+    // Deduct amount from wallet
+    wallet.deduct(transaction.totalPrice);
+    return;
+  }
+
+  transaction.clearCart();
+  setTimeout(() => {
+    dialog.value = true;
+  }, 3000);
 }
 
 function goToHome() {

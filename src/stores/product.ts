@@ -18,6 +18,7 @@ export interface Product {
 }
 
 export const useProductStore = defineStore('product', {
+  persist: true,
   state: () => ({
     products: [] as Product[],
     isLoading: false,

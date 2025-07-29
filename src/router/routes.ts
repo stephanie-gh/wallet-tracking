@@ -21,6 +21,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/PaymentPage.vue'),
         props: true, // allow route props
       },
+      {
+        path: '/top-up',
+        name: 'top-up',
+        component: () => import('pages/TopupPage.vue'),
+        props: true, // allow route props
+      },
     ],
   },
   {

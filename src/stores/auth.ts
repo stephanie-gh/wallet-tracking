@@ -35,6 +35,7 @@ export interface User {
 }
 
 export const useAuthStore = defineStore('auth', {
+  persist: true,
   state: () => ({
     token: Cookies.get('token') || null,
     user: null as User | null,

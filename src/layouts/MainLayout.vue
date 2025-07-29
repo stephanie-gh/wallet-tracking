@@ -9,12 +9,12 @@
         </div>
 
         <!-- Left nav (desktop only) -->
-        <div class="row items-center q-gutter-sm q-ml-auto q-hidden md:flex" v-if="$q.screen.gt.sm">
+        <div class="row items-center q-gutter-sm q-ml-auto q-hidden md:flex">
           <q-btn
             push
             size="sm"
             icon="shopping_bag"
-            label="Products"
+            :label="$q.screen.gt.sm ? 'Products' : undefined"
             :class="buttonClass(route.path === '/')"
             @click="goTo('/')"
           />
@@ -22,42 +22,16 @@
             push
             size="sm"
             icon="shopping_cart"
-            label="Cart"
+            :label="$q.screen.gt.sm ? 'Cart' : undefined"
             :class="buttonClass(route.path === '/cart')"
             @click="goTo('/cart')"
-            ><q-badge color="red" rounded floating>{{ totalQuantity }}</q-badge></q-btn
+            ><q-badge color="red" rounded floating>{{ transaction.totalQuantity }}</q-badge></q-btn
           >
           <q-btn
             push
             size="sm"
             icon="logout"
-            label="Logout"
-            color="red"
-            class="hover-scale"
-            @click="confirmLogout = true"
-          />
-        </div>
-
-        <div class="row items-center q-gutter-sm q-ml-auto q-hidden md:flex" v-else>
-          <q-btn
-            push
-            size="sm"
-            icon="shopping_bag"
-            :class="buttonClass(route.path === '/')"
-            @click="goTo('/')"
-          />
-          <q-btn
-            push
-            size="sm"
-            icon="shopping_cart"
-            :class="buttonClass(route.path === '/cart')"
-            @click="goTo('/cart')"
-            ><q-badge color="red" rounded floating>{{ totalQuantity }}</q-badge></q-btn
-          >
-          <q-btn
-            push
-            size="sm"
-            icon="logout"
+            :label="$q.screen.gt.sm ? 'Logout' : undefined"
             color="red"
             class="hover-scale"
             @click="confirmLogout = true"
@@ -89,38 +63,28 @@ import { onMounted, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from 'src/stores/auth';
 import { useTransactionStore } from 'src/stores/transaction';
-import type { Cart } from 'src/stores/transaction';
 import { useQuasar } from 'quasar';
+import { useProductStore } from 'src/stores/product';
 
 const router = useRouter();
 const route = useRoute();
 const auth = useAuthStore();
 const transaction = useTransactionStore();
+const productStore = useProductStore();
 const $q = useQuasar();
 
 const drawer = ref(false);
 const confirmLogout = ref(false);
-const totalQuantity = ref(0);
 
 onMounted(async () => {
   if (!auth.user) {
     await auth.fetchCurrentUser();
   }
-
-  const carts = await transaction.getAllCarts(auth.user?.id);
-  updateTotalQuantity(carts);
+  if (!transaction.mergedItems.length) {
+    await Promise.all([productStore.getAllProduct()]);
+    transaction.getMergedCartItems();
+  }
 });
-
-function updateTotalQuantity(orders: Cart[]) {
-  totalQuantity.value = getTotalQuantity(orders);
-}
-
-function getTotalQuantity(orders: Cart[]) {
-  return orders.reduce((total, order) => {
-    const orderTotal = order.products.reduce((sum, product) => sum + product.quantity, 0);
-    return total + orderTotal;
-  }, 0);
-}
 
 const logout = async () => {
   auth.logout();
