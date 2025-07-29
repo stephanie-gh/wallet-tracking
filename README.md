@@ -1,5 +1,13 @@
 # Quasar App (wallet-tracking)
 
+🟢 **Login Info:**  
+Gunakan akun berikut untuk login ke aplikasi:
+
+- **Username:** `johnd`
+- **Password:** `m38rmF$`
+
+---
+
 A Quasar Project
 
 ## Install the dependencies
